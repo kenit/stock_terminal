@@ -44,6 +44,15 @@ type Ticker struct {
 }
 
 type Depth struct {
+	FirstUpdateId int `json:"U"`
+	FinalUpdateId int `json:"u"`
+	OldUpdateId int `json:"pu"`
 	Bid [][2]string `json:"b"`
 	Ask [][2]string `json:"a"`
+}
+
+type Snapshot struct{
+	LastUpdateId int `json:"lastUpdateId"`
+	Bids [][2]string `json:"bids"`
+	Asks [][2]string `json:"asks"`
 }

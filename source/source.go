@@ -1,21 +1,28 @@
 package source
 
-type Api interface {
+type Broadcast struct {
+	CurrChan chan *Broadcast
+	NextChan chan *Broadcast
+	Message  interface{}
+}
+
+type Source interface {
 	Conn() error
 	Close()
 	PollMessage() <-chan interface{}
 	GetSymbols() []string
 	SetFocus(string)
+	GetSnapshot() (interface{},error)
 }
 
 var (
-	apiConn Api
+	sourceConn Source
 )
 
-func Register(api Api){
-	apiConn = api
+func Register(api Source){
+	sourceConn = api
 }
 
-func GetConn() Api{
-	return apiConn
+func GetSource() Source{
+	return sourceConn
 }

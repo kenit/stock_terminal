@@ -7,16 +7,25 @@ import (
 	"stock_terminal/source"
 	"stock_terminal/source/binance"
 	"strconv"
+	"sync"
 )
+
+type Snapshot struct {
+	UpdateId int
+	Bids [][2]float64
+	Asks [][2]float64
+}
 
 var (
 	widgetArray []ui.Drawable
 	currentSymbol string
+	currentSnapshot *Snapshot
+	lock sync.Mutex
 )
 
 func main() {
 
-	c := source.GetConn()
+	c := source.GetSource()
 	if err := c.Conn(); err != nil {
 		fmt.Printf("failed to connect to source, %s", err)
 	}
@@ -27,11 +36,13 @@ func main() {
 	}
 	defer ui.Close()
 
+
+
 	klineChan := make(chan *KlineData)
 	klineWidget := NewKlineWidget(klineChan)
 	widgetArray = append(widgetArray, klineWidget)
 
-	depthChan := make(chan *DepthData)
+	depthChan := make(chan *DepthData, 1000)
 	askWidget, bidWidget := NewDepthWidget(depthChan)
 	widgetArray = append(widgetArray, askWidget, bidWidget)
 
@@ -45,7 +56,7 @@ func main() {
 
 	debug := widgets.NewParagraph()
 	debug.SetRect(200, 1, 100, 5)
-	//widgetArray = append(widgetArray, debug)
+	widgetArray = append(widgetArray, debug)
 
 	selection := &Selection{}
 	selection.StartYCoordinate = 20
@@ -81,24 +92,28 @@ func main() {
 			currentSymbol = symbol
 			symbolName.Text = currentSymbol
 			c.SetFocus(symbol)
-			break
+			currentSnapshot = nil
 		case message := <-messageChan:
+			if currentSnapshot == nil{
+				GetSnapshot()
+			}
+
 			msg := message.(*binance.Message)
 			switch msg.Data.Type {
 			case "kline":
-				open, _ := strconv.ParseFloat(msg.Data.Kline.Open, 64)
-				close, _ := strconv.ParseFloat(msg.Data.Kline.Close, 64)
-				high, _ := strconv.ParseFloat(msg.Data.Kline.High, 64)
-				low, _ := strconv.ParseFloat(msg.Data.Kline.Low, 64)
+				openPrice, _ := strconv.ParseFloat(msg.Data.Kline.Open, 64)
+				closePrice, _ := strconv.ParseFloat(msg.Data.Kline.Close, 64)
+				highPrice, _ := strconv.ParseFloat(msg.Data.Kline.High, 64)
+				lowPrice, _ := strconv.ParseFloat(msg.Data.Kline.Low, 64)
 
 				klineChan <- &KlineData{
 					msg.Data.Symbol,
 					msg.Data.Kline.StartTime,
 					msg.Data.Kline.EndTime,
-					open,
-					close,
-					high,
-					low,
+					openPrice,
+					closePrice,
+					highPrice,
+					lowPrice,
 				}
 			case "markPriceUpdate":
 				price, _ := strconv.ParseFloat(msg.Data.Price, 64)
@@ -115,12 +130,18 @@ func main() {
 						t1.Text = fmt.Sprintf("%4.3f %s %s", lastPrice, msg.Data.Price, msg.Data.ChangePercent)
 						t1.TextStyle.Fg = ui.ColorGreen
 					}
-					debug.Text = fmt.Sprintf("%f, %f", lastPrice, openPrice)
+
 					t2.Text = fmt.Sprintf("Low: %s   High: %s", msg.Data.Low, msg.Data.High)
 				}
 			case "depthUpdate":
+				//fmt.Printf("%i, %i, %i\n", msg.Data.FirstUpdateId, msg.Data.FinalUpdateId, msg.Data.OldUpdateId)
 				if msg.Data.Symbol == currentSymbol {
-					depth := &DepthData{}
+					depth := &DepthData{
+						Symbol: msg.Data.Symbol,
+						FirstUpdateId: msg.Data.FirstUpdateId,
+						FinalUpdateId: msg.Data.FinalUpdateId,
+						OldUpdateId: msg.Data.OldUpdateId,
+					}
 					for _, askData := range msg.Data.Ask {
 						price, _ := strconv.ParseFloat(askData[0], 64)
 						qty, _ := strconv.ParseFloat(askData[1], 64)
@@ -132,10 +153,38 @@ func main() {
 						qty, _ := strconv.ParseFloat(bidData[1], 64)
 						depth.Bid = append(depth.Bid, [2]float64{price, qty})
 					}
+
 					depthChan <- depth
 				}
 			}
+
 		}
 		ui.Render(widgetArray...)
+	}
+}
+
+func GetSnapshot(){
+	c := source.GetSource()
+	if s, err := c.GetSnapshot(); err == nil{
+		lock.Lock()
+		snapshot := s.(binance.Snapshot)
+
+		currentSnapshot = &Snapshot{UpdateId: snapshot.LastUpdateId}
+
+		for _, ask := range snapshot.Asks{
+			price, _ := strconv.ParseFloat(ask[0], 64)
+			qty, _ := strconv.ParseFloat(ask[1], 64)
+			currentSnapshot.Asks = append(currentSnapshot.Asks, [2]float64{price, qty})
+		}
+
+		for _, bid := range snapshot.Bids{
+			price, _ := strconv.ParseFloat(bid[0], 64)
+			qty, _ := strconv.ParseFloat(bid[1], 64)
+			currentSnapshot.Bids = append(currentSnapshot.Bids, [2]float64{price, qty})
+		}
+
+		lock.Unlock()
+	}else{
+		fmt.Println(err)
 	}
 }
