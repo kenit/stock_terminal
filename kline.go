@@ -61,6 +61,8 @@ func (k *KlineChart) Draw(buf *Buffer) {
 		minVal = math.Min(minVal, data.Min())
 	}
 
+	originMaxVal := maxVal
+
 	maxVal = maxVal * 1.0000005
 	minVal = minVal * 0.9999995
 
@@ -75,6 +77,16 @@ func (k *KlineChart) Draw(buf *Buffer) {
 			c := NewCell(' ', NewStyle(ColorClear, ColorWhite))
 			buf.SetCell(c, image.Pt(int(barXCoordinate+k.BarWidth/2), y))
 		}
+
+		if bar.High == originMaxVal{
+			buf.SetString(
+				fmt.Sprintf("%5.2f", originMaxVal),
+				NewStyle(ColorWhite),
+				image.Pt(int(math.Max(float64(k.Inner.Min.X), float64(barXCoordinate) - 1)), k.Inner.Min.Y),
+			)
+		}
+
+
 
 		y0 = int(((maxVal - math.Max(bar.Open, bar.Close)) / (maxVal - minVal)) * float64(k.Inner.Dy()-1))
 		y1 = int(((maxVal - math.Min(bar.Open, bar.Close)) / (maxVal - minVal)) * float64(k.Inner.Dy()-1))
