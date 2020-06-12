@@ -12,15 +12,16 @@ import (
 
 type Snapshot struct {
 	UpdateId int
-	Bids [][2]float64
-	Asks [][2]float64
+	Symbol   string
+	Bids     [][2]float64
+	Asks     [][2]float64
 }
 
 var (
-	widgetArray []ui.Drawable
-	currentSymbol string
+	widgetArray     []ui.Drawable
+	currentSymbol   string
 	currentSnapshot *Snapshot
-	lock sync.Mutex
+	lock            sync.Mutex
 )
 
 func main() {
@@ -35,8 +36,6 @@ func main() {
 		fmt.Printf("failed to initialize termui: %v", err)
 	}
 	defer ui.Close()
-
-
 
 	klineChan := make(chan *KlineData)
 	klineWidget := NewKlineWidget(klineChan)
@@ -55,8 +54,8 @@ func main() {
 	widgetArray = append(widgetArray, t1, t2)
 
 	debug := widgets.NewParagraph()
-	debug.SetRect(200, 1, 100, 5)
-	widgetArray = append(widgetArray, debug)
+	debug.SetRect(200, 0, 100, 4)
+	//widgetArray = append(widgetArray, debug)
 
 	selection := &Selection{}
 	selection.StartYCoordinate = 20
@@ -94,9 +93,6 @@ func main() {
 			c.SetFocus(symbol)
 			currentSnapshot = nil
 		case message := <-messageChan:
-			if currentSnapshot == nil{
-				GetSnapshot()
-			}
 
 			msg := message.(*binance.Message)
 			switch msg.Data.Type {
@@ -137,10 +133,10 @@ func main() {
 				//fmt.Printf("%i, %i, %i\n", msg.Data.FirstUpdateId, msg.Data.FinalUpdateId, msg.Data.OldUpdateId)
 				if msg.Data.Symbol == currentSymbol {
 					depth := &DepthData{
-						Symbol: msg.Data.Symbol,
+						Symbol:        msg.Data.Symbol,
 						FirstUpdateId: msg.Data.FirstUpdateId,
 						FinalUpdateId: msg.Data.FinalUpdateId,
-						OldUpdateId: msg.Data.OldUpdateId,
+						OldUpdateId:   msg.Data.OldUpdateId,
 					}
 					for _, askData := range msg.Data.Ask {
 						price, _ := strconv.ParseFloat(askData[0], 64)
@@ -163,28 +159,31 @@ func main() {
 	}
 }
 
-func GetSnapshot(){
+func GetSnapshot() {
 	c := source.GetSource()
-	if s, err := c.GetSnapshot(); err == nil{
+	if s, err := c.GetSnapshot(); err == nil {
 		lock.Lock()
 		snapshot := s.(binance.Snapshot)
 
-		currentSnapshot = &Snapshot{UpdateId: snapshot.LastUpdateId}
+		currentSnapshot = &Snapshot{
+			UpdateId: snapshot.LastUpdateId,
+			Symbol:   snapshot.Symbol,
+		}
 
-		for _, ask := range snapshot.Asks{
+		for _, ask := range snapshot.Asks {
 			price, _ := strconv.ParseFloat(ask[0], 64)
 			qty, _ := strconv.ParseFloat(ask[1], 64)
 			currentSnapshot.Asks = append(currentSnapshot.Asks, [2]float64{price, qty})
 		}
 
-		for _, bid := range snapshot.Bids{
+		for _, bid := range snapshot.Bids {
 			price, _ := strconv.ParseFloat(bid[0], 64)
 			qty, _ := strconv.ParseFloat(bid[1], 64)
 			currentSnapshot.Bids = append(currentSnapshot.Bids, [2]float64{price, qty})
 		}
 
 		lock.Unlock()
-	}else{
+	} else {
 		fmt.Println(err)
 	}
 }

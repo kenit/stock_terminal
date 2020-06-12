@@ -53,6 +53,7 @@ type Depth struct {
 
 type Snapshot struct{
 	LastUpdateId int `json:"lastUpdateId"`
+	Symbol string
 	Bids [][2]string `json:"bids"`
 	Asks [][2]string `json:"asks"`
 }

@@ -4,10 +4,10 @@ import (
 	"fmt"
 	ui "github.com/gizak/termui/v3"
 	"github.com/gizak/termui/v3/widgets"
+	"sort"
 	"stock_terminal/source"
 	"stock_terminal/source/binance"
 	"strconv"
-	"sort"
 )
 
 type DepthData struct {
@@ -31,28 +31,40 @@ func NewDepthWidget(depthChan chan *DepthData) (*widgets.List, *widgets.List) {
 
 		started := false
 		lastFinalUpdateId := 0
+		qq := 0
 
 		for depth := range depthChan {
-			for currentSnapshot == nil {
-			}
+
 			if depth.Symbol != currentSymbol {
 				continue
 			}
 
+			if currentSnapshot == nil || currentSnapshot.Symbol != currentSymbol {
+				GetSnapshot()
+				started = false
+				lastFinalUpdateId = 0
+			}
+
 			if !started && (depth.FinalUpdateId < currentSnapshot.UpdateId || depth.FirstUpdateId > currentSnapshot.UpdateId) {
+				qq++
+				if qq > 30 {
+					GetSnapshot()
+					qq = 0
+				}
 				continue
 			} else {
+				qq = 0
 				started = true
 			}
 
 			if lastFinalUpdateId != 0 && lastFinalUpdateId != depth.OldUpdateId {
-				lock.Lock()
-				currentSnapshot = nil
-				lock.Unlock()
+				GetSnapshot()
+				started = false
+				lastFinalUpdateId = 0
 				continue
-			} else {
-				lastFinalUpdateId = depth.FinalUpdateId
 			}
+
+			lastFinalUpdateId = depth.FinalUpdateId
 
 			lock.Lock()
 			for _, ask := range depth.Ask {
@@ -93,13 +105,17 @@ func NewDepthWidget(depthChan chan *DepthData) (*widgets.List, *widgets.List) {
 
 	go func() {
 		for message := range source.GetSource().PollMessage() {
-			for currentSnapshot == nil {
+
+			if currentSnapshot == nil {
+				continue
 			}
+
 			var askRow, bidRow []string
 			askRow = append(askRow, "Price         Amount")
 			bidRow = append(bidRow, "Price         Amount")
 			msg := message.(*binance.Message)
 			if msg.Data.Type == "kline" && msg.Data.Symbol == currentSymbol {
+
 				closePrice, _ := strconv.ParseFloat(msg.Data.Kline.Close, 64)
 				lock.Lock()
 				index := sort.Search(len(currentSnapshot.Asks), func(i int) bool { return currentSnapshot.Asks[i][0] >= closePrice })

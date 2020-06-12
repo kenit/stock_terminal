@@ -51,7 +51,7 @@ func (b *Binance) Conn() error {
 		if symbol == strings.ToLower(b.focus) {
 			subParams = append(subParams, []string{
 				symbol + "@ticker",
-				symbol + "@depth",
+				symbol + "@depth@0ms",
 			}...)
 		}
 	}
@@ -126,9 +126,11 @@ func (b *Binance) GetSymbols() []string {
 
 func (b *Binance) GetSnapshot() (interface{},error){
 	var snapshot Snapshot
-	if response, err := http.Get("https://fapi.binance.com/fapi/v1/depth?limit=1000&symbol=" + b.focus); err == nil{
+	symbol := b.focus
+	if response, err := http.Get("https://fapi.binance.com/fapi/v1/depth?limit=1000&symbol=" + symbol); err == nil{
 
 		if err = json.NewDecoder(response.Body).Decode(&snapshot); err == nil{
+			snapshot.Symbol = symbol
 			return snapshot, nil
 		}else{
 			return nil, err
@@ -144,7 +146,7 @@ func (b *Binance) SetFocus(symbol string) {
 		Method: "UNSUBSCRIBE",
 		Params: []string{
 			 strings.ToLower(b.focus) + "@ticker",
-			 strings.ToLower(b.focus) + "@depth",
+			 strings.ToLower(b.focus) + "@depth@0ms",
 		},
 		Id:     requestId,
 	}
@@ -157,7 +159,7 @@ func (b *Binance) SetFocus(symbol string) {
 		Method: "SUBSCRIBE",
 		Params: []string{
 			strings.ToLower(symbol) + "@ticker",
-			strings.ToLower(symbol) + "@depth",
+			strings.ToLower(symbol) + "@depth@0ms",
 		},
 		Id:     requestId,
 	}
