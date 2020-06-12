@@ -8,6 +8,7 @@ import (
 	"stock_terminal/source/binance"
 	"strconv"
 	"sync"
+	"time"
 )
 
 type Snapshot struct {
@@ -79,6 +80,13 @@ func main() {
 				ch <- 1
 				return
 			}
+		}
+	}()
+
+	go func(){
+		for{
+			ui.Render(widgetArray...)
+			time.Sleep(100 * time.Millisecond)
 		}
 	}()
 
@@ -155,7 +163,7 @@ func main() {
 			}
 
 		}
-		ui.Render(widgetArray...)
+
 	}
 }
 
