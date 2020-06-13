@@ -125,9 +125,14 @@ func (k *KlineChart) Draw(buf *Buffer) {
 
 func NewKlineWidget(dataChan chan *KlineData) *KlineChart {
 	allData := make(map[string][]*KlineData)
+
+	terminalW, terminalH := TerminalDimensions()
+
 	widget := NewKlineChart()
-	widget.SetRect(31, 4, 200, 40)
+	widget.SetRect(31, 4, terminalW - 1, terminalH - 1)
 	widget.BarWidth = 5
+
+	maxDisplayDataNumber := (widget.Inner.Max.X - widget.Inner.Min.X) / (widget.BarWidth + widget.BarGap)
 
 	go func() {
 		for data := range dataChan {
@@ -142,16 +147,23 @@ func NewKlineWidget(dataChan chan *KlineData) *KlineChart {
 					latest.Open = data.Open
 					latest.Close = data.Close
 				} else {
-					if count > 30 {
-						allData[data.Symbol] = append(allData[data.Symbol][1:], data)
-					} else {
-						allData[data.Symbol] = append(allData[data.Symbol], data)
-					}
+					allData[data.Symbol] = append(allData[data.Symbol], data)
 				}
 			}
+			firstIndex := math.Max(float64(len(allData[data.Symbol]) - maxDisplayDataNumber), 0)
+			widget.Data = allData[currentSymbol][int(firstIndex):]
+		}
+	}()
 
-			widget.Data = allData[currentSymbol]
 
+	go func() {
+		for e := range PollEvents() {
+			if e.Type == ResizeEvent {
+
+				resolution := e.Payload.(Resize)
+				widget.SetRect(31, 4, resolution.Width - 1, resolution.Height - 1)
+				maxDisplayDataNumber = (widget.Inner.Max.X - widget.Inner.Min.X) / (widget.BarWidth + widget.BarGap)
+			}
 		}
 	}()
 

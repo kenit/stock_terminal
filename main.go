@@ -40,6 +40,7 @@ func main() {
 
 	klineChan := make(chan *KlineData)
 	klineWidget := NewKlineWidget(klineChan)
+	klineWidget.Title = "1 Min Kline Chart"
 	widgetArray = append(widgetArray, klineWidget)
 
 	depthChan := make(chan *DepthData, 1000)

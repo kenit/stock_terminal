@@ -1,6 +1,7 @@
-# stock_terminal
+# Stock Terminal
 ## Introduction
-Use unix terminal to monitor cryptocurrency price in Binance
+Use unix terminal to monitor cryptocurrency price in Binance.
+
 
 ## Install 
 1. Make you have the latest go and dep installed on your PC.
@@ -14,8 +15,10 @@ Use unix terminal to monitor cryptocurrency price in Binance
 
 
 ## Todo
-1. Allow to add currency
-2. Change width of Kline chart when size of terminal is changed
+-[ ] Allow to add currency
+-[X] Change width of Kline chart when size of terminal is changed
+
+All ideas are welcome, please provide it in issue.
 
 ## Known issue
 1. User will encounter error if switch bewteeen currency to fastly.
