@@ -6,7 +6,7 @@ import (
 	"fmt"
 	"github.com/gorilla/websocket"
 	"net/http"
-	"stock_terminal/source"
+	"github.com/kenit/stock_terminal/source"
 	"strings"
 )
 
